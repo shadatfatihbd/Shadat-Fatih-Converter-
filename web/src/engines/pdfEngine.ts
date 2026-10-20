@@ -6,10 +6,40 @@ import { ConvertedFile } from '../types';
 // Configure pdfjs worker CDN matching the installed version
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version || '3.11.174'}/pdf.worker.min.js`;
 
+// Browser canvas limits (iOS Safari ~16.7MP, Chrome/Firefox ~268MP, max side 16384/32767).
+const MAX_CANVAS_SIDE = 16384;
+const MAX_CANVAS_PIXELS = 16_777_216 * 4; // ~67MP desktop-safe
+const MAX_CANVAS_PIXELS_MOBILE = 16_777_216; // ~16.7MP iOS Safari limit
+
+function getSafeViewport(page: any, requestedScale: number) {
+  const base = page.getViewport({ scale: 1 });
+  const isMobile = typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  const maxPixels = isMobile ? MAX_CANVAS_PIXELS_MOBILE : MAX_CANVAS_PIXELS;
+  let scale = requestedScale;
+  const sideLimit = MAX_CANVAS_SIDE / Math.max(base.width, base.height);
+  const areaLimit = Math.sqrt(maxPixels / (base.width * base.height));
+  scale = Math.max(0.5, Math.min(scale, sideLimit, areaLimit));
+  return page.getViewport({ scale });
+}
+
+function createRenderCanvas(viewport: any, opaque: boolean) {
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.floor(viewport.width);
+  canvas.height = Math.floor(viewport.height);
+  const ctx = canvas.getContext('2d', { alpha: !opaque })!;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  if (opaque) {
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  return { canvas, ctx };
+}
+
 export async function convertPdfToImages(
   file: File,
   format: 'png' | 'jpeg' | 'webp' | 'bmp' = 'png',
-  scale: number = 2.0,
+  scale: number = 300 / 72,
   onProgress?: (progress: number) => void
 ): Promise<ConvertedFile> {
   const arrayBuffer = await file.arrayBuffer();
@@ -32,19 +62,10 @@ export async function convertPdfToImages(
   // If single page, directly output the image
   if (numPages === 1) {
     const page = await pdfDoc.getPage(1);
-    const viewport = page.getViewport({ scale });
-    const canvas = document.createElement('canvas');
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    const ctx = canvas.getContext('2d')!;
+    const viewport = getSafeViewport(page, scale);
+    const { canvas, ctx } = createRenderCanvas(viewport, format !== 'png' && format !== 'webp');
 
-    // White background for JPEG / BMP
-    if (format === 'jpeg' || format === 'bmp') {
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-
-    await page.render({ canvasContext: ctx, viewport }).promise;
+    await page.render({ canvasContext: ctx, viewport, intent: 'print' }).promise;
     onProgress?.(80);
 
     const blob = await canvasToBlob(canvas, mimeType, format === 'bmp');
@@ -67,19 +88,14 @@ export async function convertPdfToImages(
 
   for (let i = 1; i <= numPages; i++) {
     const page = await pdfDoc.getPage(i);
-    const viewport = page.getViewport({ scale });
-    const canvas = document.createElement('canvas');
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    const ctx = canvas.getContext('2d')!;
+    const viewport = getSafeViewport(page, scale);
+    const { canvas, ctx } = createRenderCanvas(viewport, format !== 'png' && format !== 'webp');
 
-    if (format === 'jpeg' || format === 'bmp') {
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-
-    await page.render({ canvasContext: ctx, viewport }).promise;
+    await page.render({ canvasContext: ctx, viewport, intent: 'print' }).promise;
     const blob = await canvasToBlob(canvas, mimeType, format === 'bmp');
+    page.cleanup();
+    canvas.width = 0;
+    canvas.height = 0;
     const bytes = await blob.arrayBuffer();
 
     const pageStr = String(i).padStart(3, '0');
@@ -526,7 +542,7 @@ function canvasToBlob(canvas: HTMLCanvasElement, mimeType: string, isBmp: boolea
     canvas.toBlob((blob) => {
       if (blob) resolve(blob);
       else reject(new Error('Canvas export failed'));
-    }, mimeType);
+    }, mimeType, mimeType === 'image/png' ? undefined : 0.95);
   });
 }
 

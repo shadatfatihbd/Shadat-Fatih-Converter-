@@ -111,6 +111,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
   const [pdfRotateAngle, setPdfRotateAngle] = useState(90);
   const [pdfPagesToDelete, setPdfPagesToDelete] = useState('');
   const [pdfTargetImageFormat, setPdfTargetImageFormat] = useState<'png' | 'jpeg' | 'webp' | 'bmp'>('png');
+  const [pdfDpi, setPdfDpi] = useState<number>(300);
   const [pdfWatermarkText, setPdfWatermarkText] = useState('CONFIDENTIAL');
   const [pdfWatermarkOpacity, setPdfWatermarkOpacity] = useState(0.35);
   const [pdfPageNumberPos, setPdfPageNumberPos] = useState<'bottom-center' | 'bottom-right' | 'top-right'>('bottom-center');
@@ -192,7 +193,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
       switch (tool.id) {
         // PDF Tools
         case 'pdf-to-img':
-          result = await convertPdfToImages(files[0], pdfTargetImageFormat, 2.0, (p) => setProgress(p));
+          result = await convertPdfToImages(files[0], pdfTargetImageFormat, pdfDpi / 72, (p) => setProgress(p));
           break;
         case 'pdf-merge':
           setProgress(40);
@@ -527,9 +528,15 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                         <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
                           Output Resolution
                         </label>
-                        <select className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white">
-                          <option value="2">High Resolution (2x Retina - 150 DPI)</option>
-                          <option value="1">Standard Resolution (1x - 72 DPI)</option>
+                        <select
+                          value={pdfDpi}
+                          onChange={(e) => setPdfDpi(Number(e.target.value))}
+                          className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
+                        >
+                          <option value={600}>Ultra HD (600 DPI - Print Quality)</option>
+                          <option value={300}>Full HD (300 DPI - Recommended)</option>
+                          <option value={150}>High (150 DPI)</option>
+                          <option value={72}>Standard (72 DPI - Small File)</option>
                         </select>
                       </div>
                     </div>
