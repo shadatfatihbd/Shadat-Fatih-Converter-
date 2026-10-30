@@ -1,7 +1,7 @@
 import React from 'react';
 import { ConversionTool, Language } from '../types';
 import { translations } from '../i18n/translations';
-import { History, ArrowRight } from 'lucide-react';
+import { Clock, ChevronRight } from 'lucide-react';
 
 interface RecentlyUsedProps {
   recentToolIds: string[];
@@ -27,31 +27,31 @@ export const RecentlyUsed: React.FC<RecentlyUsedProps> = ({
   if (recentTools.length === 0) return null;
 
   return (
-    <div className="mb-10 p-5 rounded-2xl bg-white/70 dark:bg-[#1E293B]/70 border border-slate-200/80 dark:border-slate-800 backdrop-blur-sm shadow-sm">
-      <div className="flex items-center justify-between mb-4">
+    <div className="mb-8 p-5 rounded-[20px] bg-white dark:bg-[#1C1C1E] border border-[#D2D2D7] dark:border-[#38383A] shadow-apple-card">
+      <div className="flex items-center justify-between mb-3.5">
         <div className="flex items-center gap-2">
-          <History className="w-4 h-4 text-sky-500" />
-          <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+          <Clock className="w-3.5 h-3.5 text-[#0071E3] dark:text-[#0A84FF]" />
+          <h3 className="text-xs font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] tracking-tight uppercase">
             {t.recentToolsTitle}
           </h3>
         </div>
         <button
           onClick={onClearHistory}
-          className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+          className="text-[11px] text-[#86868B] hover:text-[#1D1D1F] dark:hover:text-[#F5F5F7] transition"
         >
           {t.clearRecent}
         </button>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-thin">
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
         {recentTools.map((tool) => (
           <button
             key={tool.id}
             onClick={() => onSelectTool(tool)}
-            className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 hover:border-sky-500/50 hover:bg-white dark:hover:bg-slate-700/80 transition-all text-xs font-semibold text-slate-700 dark:text-slate-200 shrink-0"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-[#E5E5EA] dark:border-[#38383A] hover:border-[#0071E3]/50 dark:hover:border-[#0A84FF]/50 transition-all text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] shrink-0"
           >
             <span>{t[tool.nameKey] || tool.id}</span>
-            <ArrowRight className="w-3 h-3 text-sky-500" />
+            <ChevronRight className="w-3 h-3 text-[#86868B]" />
           </button>
         ))}
       </div>

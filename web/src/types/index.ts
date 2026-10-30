@@ -11,6 +11,8 @@ export type ToolCategory =
   | 'audio'
   | 'video'
   | 'archive'
+  | 'qr-barcode'
+  | 'text'
   | 'utility';
 
 export interface ConversionTool {
@@ -33,7 +35,9 @@ export interface ConversionTool {
     | 'video'
     | 'archive'
     | 'utility'
-    | 'ocr';
+    | 'ocr'
+    | 'qr-barcode'
+    | 'text';
   requiresBackend?: boolean;
 }
 
@@ -60,6 +64,15 @@ export interface ImageConversionSettings {
   rotation: number; // 0, 90, 180, 270
   flipHorizontal?: boolean;
   flipVertical?: boolean;
+  filter?: 'none' | 'grayscale' | 'sepia' | 'invert';
+  backgroundColor?: string;
+  watermarkText?: string;
+  preset?: string;
+  cropEnabled?: boolean;
+  cropX?: number;
+  cropY?: number;
+  cropWidth?: number;
+  cropHeight?: number;
 }
 
 export interface PdfConversionSettings {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Language, ToolCategory } from '../types';
 import { translations } from '../i18n/translations';
-import { Search, Shield, Zap, Sparkles, Lock } from 'lucide-react';
+import { Search, ArrowRight, ShieldCheck, Check, Sparkles, FileText, ArrowLeftRight } from 'lucide-react';
 
 interface HeroProps {
   language: Language;
@@ -30,48 +30,86 @@ export const Hero: React.FC<HeroProps> = ({
     { id: 'audio', label: t.catAudio },
     { id: 'video', label: t.catVideo },
     { id: 'archive', label: t.catArchive },
+    { id: 'qr-barcode', label: t.catQrBarcode || 'QR & Barcode' },
+    { id: 'text', label: t.catText || 'Text' },
     { id: 'utility', label: t.catUtility }
   ];
 
-  return (
-    <section className="relative overflow-hidden pt-8 pb-10 sm:pt-12 sm:pb-14 bg-gradient-to-b from-white via-slate-50/50 to-transparent dark:from-[#0B132B] dark:via-[#0F172A]/70 dark:to-transparent">
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-purple-500/10 rounded-full blur-3xl pointer-events-none -z-10" />
+  const scrollToAllTools = () => {
+    const el = document.getElementById('all-tools-section');
+    el?.scrollIntoView({ behavior: 'smooth' });
+  };
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center">
-        {/* Security & Privacy Badge */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-500/10 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-400/30 text-xs font-semibold mb-6 shadow-sm">
-          <Lock className="w-3.5 h-3.5 text-sky-500" />
-          <span>{t.privacyHeroNotice}</span>
+  return (
+    <section className="relative pt-12 pb-14 sm:pt-16 sm:pb-20 text-center">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6">
+        {/* Apple Overline Label */}
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E5E5EA]/70 dark:bg-[#2C2C2E]/70 text-[#0071E3] dark:text-[#0A84FF] text-[11px] font-semibold tracking-wider uppercase mb-5">
+          <ShieldCheck className="w-3.5 h-3.5" />
+          <span>
+            {language === 'bn' ? 'অল-ইন-ওয়ান ফাইল ইউটিলিটি' : 'ALL-IN-ONE FILE UTILITIES'}
+          </span>
         </div>
 
-        {/* Main Heading */}
-        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.15]">
-          <span className="bg-gradient-to-r from-slate-900 via-sky-800 to-indigo-900 dark:from-white dark:via-sky-200 dark:to-indigo-300 bg-clip-text text-transparent">
-            {t.tagline}
-          </span>
+        {/* Editorial Apple Headline */}
+        <h1 className="text-4xl sm:text-6xl font-semibold tracking-tight text-[#1D1D1F] dark:text-[#F5F5F7] leading-[1.08] font-apple-display">
+          {language === 'bn' ? (
+            <>
+              আপনার প্রয়োজনীয় সবকিছু।
+              <br />
+              <span className="text-[#86868B] dark:text-[#98989D]">একটি সহজ ওয়ার্কস্পেস।</span>
+            </>
+          ) : (
+            <>
+              Everything you need.
+              <br />
+              <span className="text-[#86868B] dark:text-[#98989D]">One simple workspace.</span>
+            </>
+          )}
         </h1>
 
-        {/* Subtitle */}
-        <p className="mt-4 sm:mt-6 text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed">
-          {t.subTagline}
+        {/* Apple Sub-headline */}
+        <p className="mt-4 sm:mt-5 text-base sm:text-lg text-[#86868B] dark:text-[#98989D] max-w-2xl mx-auto font-normal leading-relaxed">
+          {language === 'bn'
+            ? 'সহজ ও পরিচ্ছন্ন অভিজ্ঞতায় আপনার ফাইল কনভার্ট, কম্প্রেস, রিসাইজ এবং পরিচালনা করুন।'
+            : 'Convert, compress, resize, and manage your files with a beautifully simple experience.'}
         </p>
 
-        {/* Search Bar */}
-        <div className="mt-8 max-w-2xl mx-auto relative group">
-          <div className="absolute inset-0 bg-gradient-to-r from-sky-500 to-purple-600 rounded-2xl blur opacity-20 group-hover:opacity-35 transition duration-300" />
-          <div className="relative flex items-center bg-white dark:bg-[#1E293B] rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-lg px-4 py-3">
-            <Search className="w-5 h-5 text-slate-400 dark:text-slate-400 mr-3 shrink-0" />
+        {/* Apple Call-To-Action Pill Buttons */}
+        <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+          <button
+            onClick={scrollToAllTools}
+            className="px-6 py-2.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] dark:bg-[#0A84FF] dark:hover:bg-[#0071E3] text-white text-xs sm:text-sm font-medium transition-all shadow-apple-sm flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <span>{language === 'bn' ? 'সব টুলস এক্সপ্লোর করুন' : 'Explore All Tools'}</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => {
+              onSelectCategory('pdf');
+              scrollToAllTools();
+            }}
+            className="px-6 py-2.5 rounded-full bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-[#F5F5F7] border border-[#D2D2D7] dark:border-[#38383A] text-xs sm:text-sm font-medium hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E] transition-all"
+          >
+            {language === 'bn' ? 'জনপ্রিয় টুলস' : 'Popular Tools'}
+          </button>
+        </div>
+
+        {/* Apple Refined Search Bar */}
+        <div className="mt-10 max-w-xl mx-auto">
+          <div className="relative flex items-center bg-white dark:bg-[#1C1C1E] rounded-full border border-[#D2D2D7] dark:border-[#38383A] shadow-apple-sm px-4 py-2.5 transition-all focus-within:border-[#0071E3] dark:focus-within:border-[#0A84FF] focus-within:ring-2 focus-within:ring-[#0071E3]/20">
+            <Search className="w-4 h-4 text-[#86868B] dark:text-[#98989D] mr-2.5 shrink-0" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder={t.searchPlaceholder}
-              className="w-full bg-transparent text-sm sm:text-base text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none"
+              className="w-full bg-transparent text-xs sm:text-sm text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] dark:placeholder-[#98989D] focus:outline-none"
             />
             {searchQuery && (
               <button
                 onClick={() => onSearchChange('')}
-                className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 px-2 py-1 rounded bg-slate-100 dark:bg-slate-700"
+                className="text-[11px] font-medium text-[#86868B] hover:text-[#1D1D1F] dark:hover:text-[#F5F5F7] px-2 py-0.5 rounded-full bg-[#E5E5EA] dark:bg-[#2C2C2E] transition"
               >
                 Clear
               </button>
@@ -79,16 +117,16 @@ export const Hero: React.FC<HeroProps> = ({
           </div>
         </div>
 
-        {/* Category Filter Pills */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+        {/* Apple Segmented Horizontal Category Nav */}
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-1.5 p-1 rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] max-w-3xl mx-auto">
           {categories.map((cat) => (
             <button
               key={cat.id}
               onClick={() => onSelectCategory(cat.id)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                 selectedCategory === cat.id
-                  ? 'bg-sky-500 text-white shadow-md shadow-sky-500/25 scale-105'
-                  : 'bg-white/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/80'
+                  ? 'bg-white dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] shadow-apple-sm'
+                  : 'text-[#86868B] dark:text-[#98989D] hover:text-[#1D1D1F] dark:hover:text-[#F5F5F7]'
               }`}
             >
               {cat.label}
@@ -96,22 +134,57 @@ export const Hero: React.FC<HeroProps> = ({
           ))}
         </div>
 
-        {/* Quick Highlights Row */}
-        <div className="mt-10 grid grid-cols-3 gap-2 sm:gap-6 max-w-xl mx-auto text-center border-t border-slate-200/60 dark:border-slate-800/80 pt-6">
-          <div className="flex flex-col items-center">
-            <Shield className="w-5 h-5 text-sky-500 mb-1" />
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">100% Private</span>
-            <span className="text-[10px] text-slate-500">Zero Server Uploads</span>
+        {/* Sleek Apple Workspace Preview Card */}
+        <div className="mt-12 max-w-2xl mx-auto rounded-[20px] bg-white dark:bg-[#1C1C1E] border border-[#D2D2D7] dark:border-[#38383A] shadow-apple-card overflow-hidden text-left">
+          {/* macOS Title Bar */}
+          <div className="px-4 py-2.5 bg-[#F5F5F7] dark:bg-[#2C2C2E]/60 border-b border-[#D2D2D7]/80 dark:border-[#38383A]/80 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#FF5F56] border border-[#E0443E]/50" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#FFBD2E] border border-[#DEA123]/50" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#27C93F] border border-[#1AAB29]/50" />
+            </div>
+            <span className="text-[11px] font-medium text-[#86868B] dark:text-[#98989D] font-apple-text">
+              SFC Workspace Preview
+            </span>
+            <div className="w-10" />
           </div>
-          <div className="flex flex-col items-center">
-            <Zap className="w-5 h-5 text-amber-500 mb-1" />
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">WASM Speed</span>
-            <span className="text-[10px] text-slate-500">In-Browser Memory</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <Sparkles className="w-5 h-5 text-purple-500 mb-1" />
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">30+ Converters</span>
-            <span className="text-[10px] text-slate-500">No Paywalls or Limits</span>
+
+          {/* macOS App Preview Body */}
+          <div className="p-5 sm:p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#F5F5F7] dark:bg-[#2C2C2E] flex items-center justify-center text-[#0071E3] dark:text-[#0A84FF]">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-1.5">
+                    <span>Quarterly_Report_2026.pdf</span>
+                    <ArrowLeftRight className="w-3 h-3 text-[#86868B]" />
+                    <span className="text-[#0071E3] dark:text-[#0A84FF]">DOCX</span>
+                  </div>
+                  <div className="text-[11px] text-[#86868B] dark:text-[#98989D] font-apple-mono">
+                    2.4 MB • 100% Client-Side Engine
+                  </div>
+                </div>
+              </div>
+              <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#34C759]/15 text-[#34C759] text-[10px] font-semibold">
+                <Check className="w-3 h-3" />
+                <span>Ready</span>
+              </div>
+            </div>
+
+            {/* Subtle Progress Bar */}
+            <div className="w-full bg-[#E5E5EA] dark:bg-[#38383A] h-1.5 rounded-full overflow-hidden">
+              <div className="bg-[#0071E3] dark:bg-[#0A84FF] h-full w-full rounded-full" />
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] text-[#86868B] dark:text-[#98989D] pt-1 border-t border-[#D2D2D7]/50 dark:border-[#38383A]/50">
+              <span className="flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-[#0071E3] dark:text-[#0A84FF]" />
+                Zero cloud latency • Instant browser export
+              </span>
+              <span className="font-apple-mono">100% processed</span>
+            </div>
           </div>
         </div>
       </div>

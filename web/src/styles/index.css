@@ -6,40 +6,99 @@
   html {
     scroll-behavior: smooth;
     -webkit-tap-highlight-color: transparent;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", sans-serif;
+  }
+
+  body {
+    background-color: #F5F5F7;
+    color: #1D1D1F;
+    letter-spacing: -0.011em;
+  }
+
+  .dark body {
+    background-color: #000000;
+    color: #F5F5F7;
   }
 }
 
-/* Custom scrollbar */
+/* Apple typography helpers */
+.font-apple-display {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+  letter-spacing: -0.022em;
+}
+
+.font-apple-text {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
+  letter-spacing: -0.011em;
+}
+
+.font-apple-mono {
+  font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+}
+
+.font-bengali {
+  font-family: "Hind Siliguri", "Noto Sans Bengali", -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+}
+
+/* Minimal macOS Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 9999px;
 }
 .dark ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: rgba(255, 255, 255, 0.22);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: rgba(0, 0, 0, 0.35);
 }
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: rgba(255, 255, 255, 0.38);
 }
 
-/* Bengali font styling */
-.font-bengali {
-  font-family: 'Hind Siliguri', 'Noto Sans Bengali', system-ui, sans-serif;
+/* Apple Glass & Card Utility Classes */
+.apple-glass {
+  background: rgba(245, 245, 247, 0.82);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
 }
 
-/* Glow effects */
-.glow-cyan {
-  box-shadow: 0 0 25px -5px rgba(56, 189, 248, 0.4);
+.dark .apple-glass {
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
 }
-.glow-purple {
-  box-shadow: 0 0 25px -5px rgba(168, 85, 247, 0.4);
+
+.apple-window-header {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.dark .apple-window-header {
+  background: rgba(28, 28, 30, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Subtle Apple animations */
+@keyframes appleFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-apple-in {
+  animation: appleFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

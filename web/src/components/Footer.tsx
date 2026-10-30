@@ -1,7 +1,7 @@
 import React from 'react';
 import { Language } from '../types';
 import { translations } from '../i18n/translations';
-import { Heart, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 interface FooterProps {
   language: Language;
@@ -12,38 +12,38 @@ export const Footer: React.FC<FooterProps> = ({ language, onOpenLegal }) => {
   const t = translations[language];
 
   return (
-    <footer className="mt-20 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0B132B] transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <footer className="mt-16 border-t border-[#D2D2D7] dark:border-[#38383A] bg-[#F5F5F7] dark:bg-[#000000] transition-colors py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand Info */}
-          <div className="md:col-span-2 space-y-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#0F172A] border border-sky-500/40 flex items-center justify-center font-black text-xs text-sky-400">
+          <div className="md:col-span-2 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-[6px] bg-[#1D1D1F] dark:bg-[#2C2C2E] flex items-center justify-center text-white text-[10px] font-semibold">
                 SFC
               </div>
-              <span className="font-extrabold text-base text-slate-900 dark:text-white">
+              <span className="font-semibold text-sm text-[#1D1D1F] dark:text-[#F5F5F7]">
                 SFC Shadat Fatih Converter
               </span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-sm">
+            <p className="text-xs text-[#86868B] dark:text-[#98989D] leading-relaxed max-w-sm">
               {t.footerDesc}
             </p>
-            <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-              <ShieldCheck className="w-3.5 h-3.5" />
+            <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#86868B] dark:text-[#98989D]">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#0071E3] dark:text-[#0A84FF]" />
               <span>{t.privacyHeroNotice}</span>
             </div>
           </div>
 
           {/* Quick Links */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+          <div className="space-y-2.5">
+            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-[#86868B] dark:text-[#98989D]">
               {t.footerQuickLinks}
             </h4>
-            <ul className="space-y-2 text-xs text-slate-500 dark:text-slate-400">
+            <ul className="space-y-2 text-xs text-[#1D1D1F] dark:text-[#F5F5F7]">
               <li>
                 <button
                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                  className="hover:text-sky-500 transition"
+                  className="hover:text-[#0071E3] dark:hover:text-[#0A84FF] transition"
                 >
                   {t.navHome}
                 </button>
@@ -54,13 +54,13 @@ export const Footer: React.FC<FooterProps> = ({ language, onOpenLegal }) => {
                     const el = document.getElementById('all-tools-section');
                     el?.scrollIntoView({ behavior: 'smooth' });
                   }}
-                  className="hover:text-sky-500 transition"
+                  className="hover:text-[#0071E3] dark:hover:text-[#0A84FF] transition"
                 >
                   {t.navAllTools}
                 </button>
               </li>
               <li>
-                <button onClick={() => onOpenLegal('about')} className="hover:text-sky-500 transition">
+                <button onClick={() => onOpenLegal('about')} className="hover:text-[#0071E3] dark:hover:text-[#0A84FF] transition">
                   {t.navAbout}
                 </button>
               </li>
@@ -68,18 +68,18 @@ export const Footer: React.FC<FooterProps> = ({ language, onOpenLegal }) => {
           </div>
 
           {/* Legal Links */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+          <div className="space-y-2.5">
+            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-[#86868B] dark:text-[#98989D]">
               {t.footerLegal}
             </h4>
-            <ul className="space-y-2 text-xs text-slate-500 dark:text-slate-400">
+            <ul className="space-y-2 text-xs text-[#1D1D1F] dark:text-[#F5F5F7]">
               <li>
-                <button onClick={() => onOpenLegal('privacy')} className="hover:text-sky-500 transition">
+                <button onClick={() => onOpenLegal('privacy')} className="hover:text-[#0071E3] dark:hover:text-[#0A84FF] transition">
                   {t.navPrivacy}
                 </button>
               </li>
               <li>
-                <button onClick={() => onOpenLegal('terms')} className="hover:text-sky-500 transition">
+                <button onClick={() => onOpenLegal('terms')} className="hover:text-[#0071E3] dark:hover:text-[#0A84FF] transition">
                   {t.navTerms}
                 </button>
               </li>
@@ -87,12 +87,11 @@ export const Footer: React.FC<FooterProps> = ({ language, onOpenLegal }) => {
           </div>
         </div>
 
-        {/* Bottom Bar */}
-        <div className="mt-12 pt-8 border-t border-slate-100 dark:border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-4">
+        {/* Apple Editorial Bottom Line */}
+        <div className="mt-10 pt-6 border-t border-[#D2D2D7]/60 dark:border-[#38383A]/60 flex flex-col sm:flex-row items-center justify-between text-xs text-[#86868B] dark:text-[#98989D] gap-3">
           <p>© {new Date().getFullYear()} SFC Shadat Fatih Converter. {t.allRights}</p>
-          <p className="flex items-center gap-1">
-            <span>{t.developedBy}</span>
-            <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500 inline" />
+          <p className="font-normal">
+            Designed with simplicity in mind.
           </p>
         </div>
       </div>

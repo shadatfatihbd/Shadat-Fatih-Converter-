@@ -34,9 +34,24 @@ import {
   convertPdfToImages,
   addPdfWatermark,
   addPdfPageNumbers,
-  updatePdfMetadata
+  updatePdfMetadata,
+  pdfToDocx,
+  pdfToSpreadsheet,
+  compressPdf,
+  resizePdfPages,
+  addSignatureStamp
 } from '../engines/pdfEngine';
 import { processImage } from '../engines/imageEngine';
+import { generateQrCode, generateBarcode } from '../engines/qrBarcodeEngine';
+import {
+  analyzeText,
+  convertCase,
+  cleanText,
+  reverseText,
+  imageToBase64,
+  base64ToImage,
+  formatAndValidateJson
+} from '../engines/textUtilityEngine';
 import {
   convertCsvToXlsx,
   convertXlsxToCsv,
@@ -122,9 +137,33 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
   const [selectedSheet, setSelectedSheet] = useState<string>('');
   const [audioTargetFormat, setAudioTargetFormat] = useState<'wav' | 'mp3' | 'ogg' | 'flac'>('wav');
 
+  // New Tool States
+  const [pdfPageSize, setPdfPageSize] = useState<'A4' | 'A3' | 'Letter' | 'Legal'>('A4');
+  const [pdfSignatureFile, setPdfSignatureFile] = useState<File | null>(null);
+  const [textContent, setTextContent] = useState('');
+  const [qrFormat, setQrFormat] = useState<'png' | 'svg'>('png');
+  const [qrColorDark, setQrColorDark] = useState('#0B132B');
+  const [qrColorLight, setQrColorLight] = useState('#ffffff');
+  const [caseType, setCaseType] = useState<'upper' | 'lower' | 'title' | 'sentence' | 'camel' | 'snake' | 'kebab' | 'constant'>('upper');
+  const [cleanOptions, setCleanOptions] = useState({
+    removeDuplicateLines: true,
+    trimLines: true,
+    removeEmptyLines: true
+  });
+  const [reverseMode, setReverseMode] = useState<'text' | 'words'>('text');
+  const [jsonIndentation, setJsonIndentation] = useState(2);
+  const [colorInput, setColorInput] = useState('#38BDF8');
+  const [unitValue, setUnitValue] = useState(1024);
+  const [unitFrom, setUnitFrom] = useState<'MB' | 'GB' | 'KB' | 'Bytes'>('MB');
+
+  const isDirectInputTool =
+    tool.category === 'qr-barcode' ||
+    tool.category === 'text' ||
+    ['unit-converter', 'color-picker', 'json-formatter', 'img-base64'].includes(tool.id);
+
   // Allow multiple file select for batch tools
   const allowsMultiple =
-    tool.id === 'pdf-merge' || tool.id === 'img-to-pdf' || tool.id === 'zip-create';
+    tool.id === 'pdf-merge' || tool.id === 'img-to-pdf' || tool.id === 'zip-create' || tool.id === 'pdf-signature';
 
   useEffect(() => {
     return () => {
@@ -178,7 +217,15 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
   };
 
   const startConversion = async () => {
-    if (files.length === 0) {
+    const hasDirectInput =
+      isDirectInputTool &&
+      (textContent.trim().length > 0 ||
+        tool.id === 'unit-converter' ||
+        tool.id === 'color-picker' ||
+        tool.id === 'barcode-generator' ||
+        tool.id === 'qr-generator');
+
+    if (files.length === 0 && !hasDirectInput) {
       setErrorMessage(t.errorNoFile);
       return;
     }
@@ -206,6 +253,27 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
         case 'img-to-pdf':
           setProgress(50);
           result = await imagesToPdf(files);
+          break;
+        case 'pdf-to-docx':
+          result = await pdfToDocx(files[0], (p) => setProgress(p));
+          break;
+        case 'pdf-to-excel':
+          result = await pdfToSpreadsheet(files[0], 'xlsx');
+          break;
+        case 'pdf-compress':
+          setProgress(40);
+          result = await compressPdf(files[0]);
+          break;
+        case 'pdf-resize-page':
+          setProgress(40);
+          result = await resizePdfPages(files[0], pdfPageSize);
+          break;
+        case 'pdf-signature':
+          setProgress(40);
+          if (!pdfSignatureFile && files.length < 2) {
+            throw new Error('Please select both a PDF document and a signature image.');
+          }
+          result = await addSignatureStamp(files[0], pdfSignatureFile || files[1]);
           break;
         case 'pdf-watermark':
           setProgress(50);
@@ -241,8 +309,13 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
         case 'img-to-svg':
         case 'img-compress':
         case 'img-resize':
+        case 'img-crop':
+        case 'img-filter':
           setProgress(50);
-          result = await processImage(files[0], imageSettings);
+          result = await processImage(files[0], {
+            ...imageSettings,
+            cropEnabled: tool.id === 'img-crop'
+          });
           break;
 
         // Document Tools
@@ -354,6 +427,102 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
           break;
         }
 
+        // QR & Barcode Tools
+        case 'qr-generator': {
+          setProgress(40);
+          const raw = textContent.trim() || (files[0] ? await files[0].text() : 'https://shadatfatihbd.github.io/Shadat-Fatih-Converter-/');
+          result = await generateQrCode({
+            text: raw,
+            format: qrFormat,
+            darkColor: qrColorDark,
+            lightColor: qrColorLight,
+            size: 512
+          });
+          break;
+        }
+        case 'barcode-generator': {
+          setProgress(40);
+          const raw = textContent.trim() || (files[0] ? (await files[0].text()).trim() : 'SFC-2026');
+          result = await generateBarcode(raw, 480, 160);
+          break;
+        }
+
+        // Text Tools
+        case 'word-counter': {
+          setProgress(40);
+          const raw = files[0] ? await files[0].text() : textContent;
+          const stats = analyzeText(raw);
+          const report = [
+            `SFC Word & Text Analytics Report`,
+            `=================================`,
+            `Words:                  ${stats.words}`,
+            `Characters (total):     ${stats.characters}`,
+            `Characters (no spaces): ${stats.charactersNoSpaces}`,
+            `Lines:                  ${stats.lines}`,
+            `Paragraphs:             ${stats.paragraphs}`,
+            `Estimated Reading Time: ${stats.readingTimeMin} min`,
+            `=================================`,
+            `Original Text Sample:`,
+            raw.slice(0, 300)
+          ].join('\n');
+          const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+          result = {
+            name: `text-analysis-${Date.now()}.txt`,
+            size: blob.size,
+            type: 'text/plain',
+            url: URL.createObjectURL(blob),
+            blob,
+            previewText: report,
+            extraInfo: `${stats.words} words, ${stats.characters} chars, ${stats.lines} lines`
+          };
+          break;
+        }
+        case 'case-converter': {
+          setProgress(40);
+          const raw = files[0] ? await files[0].text() : textContent;
+          const converted = convertCase(raw, caseType);
+          const blob = new Blob([converted], { type: 'text/plain;charset=utf-8' });
+          result = {
+            name: `converted-${caseType}-${Date.now()}.txt`,
+            size: blob.size,
+            type: 'text/plain',
+            url: URL.createObjectURL(blob),
+            blob,
+            previewText: converted
+          };
+          break;
+        }
+        case 'text-cleaner': {
+          setProgress(40);
+          const raw = files[0] ? await files[0].text() : textContent;
+          const cleaned = cleanText(raw, cleanOptions.trimLines, cleanOptions.removeDuplicateLines);
+          const blob = new Blob([cleaned], { type: 'text/plain;charset=utf-8' });
+          result = {
+            name: `cleaned-text-${Date.now()}.txt`,
+            size: blob.size,
+            type: 'text/plain',
+            url: URL.createObjectURL(blob),
+            blob,
+            previewText: cleaned
+          };
+          break;
+        }
+        case 'text-reverser': {
+          setProgress(40);
+          const raw = files[0] ? await files[0].text() : textContent;
+          const reversed = reverseText(raw, reverseMode === 'words' ? 'words' : 'chars');
+          const blob = new Blob([reversed], { type: 'text/plain;charset=utf-8' });
+          result = {
+            name: `reversed-${Date.now()}.txt`,
+            size: blob.size,
+            type: 'text/plain',
+            url: URL.createObjectURL(blob),
+            blob,
+            previewText: reversed
+          };
+          break;
+        }
+
         // Utility Tools
         case 'file-checksum':
           setProgress(50);
@@ -363,6 +532,129 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
           setProgress(50);
           result = await inspectFileMetadata(files[0]);
           break;
+        case 'img-base64': {
+          setProgress(40);
+          if (files[0] && files[0].type.startsWith('image/')) {
+            result = await imageToBase64(files[0]);
+          } else {
+            const raw = textContent.trim() || (files[0] ? await files[0].text() : '');
+            result = await base64ToImage(raw);
+          }
+          break;
+        }
+        case 'json-formatter': {
+          setProgress(40);
+          const raw = files[0] ? await files[0].text() : textContent;
+          const jsonRes = formatAndValidateJson(raw, jsonIndentation === 0 ? 'minify' : 'pretty');
+          if (!jsonRes.isValid) {
+            throw new Error(`JSON Syntax Error: ${jsonRes.error || 'Invalid JSON format'}`);
+          }
+          const blob = new Blob([jsonRes.result], { type: 'application/json;charset=utf-8' });
+          result = {
+            name: `formatted-${Date.now()}.json`,
+            size: blob.size,
+            type: 'application/json',
+            url: URL.createObjectURL(blob),
+            blob,
+            previewText: jsonRes.result
+          };
+          break;
+        }
+        case 'unit-converter': {
+          setProgress(50);
+          const val = unitValue;
+          let bytes = 0;
+          if (unitFrom === 'Bytes') bytes = val;
+          else if (unitFrom === 'KB') bytes = val * 1024;
+          else if (unitFrom === 'MB') bytes = val * 1024 * 1024;
+          else if (unitFrom === 'GB') bytes = val * 1024 * 1024 * 1024;
+
+          const summary = [
+            `SFC Unit & Storage Conversion Report`,
+            `=====================================`,
+            `Input: ${val} ${unitFrom}`,
+            `-------------------------------------`,
+            `Bytes:          ${bytes.toLocaleString()} B`,
+            `Kilobytes (KB): ${(bytes / 1024).toFixed(4)} KB`,
+            `Megabytes (MB): ${(bytes / (1024 * 1024)).toFixed(4)} MB`,
+            `Gigabytes (GB): ${(bytes / (1024 * 1024 * 1024)).toFixed(6)} GB`,
+            `Terabytes (TB): ${(bytes / (1024 * 1024 * 1024 * 1024)).toFixed(8)} TB`,
+            `-------------------------------------`,
+            `Decimal (SI) Comparison:`,
+            `KB (10^3): ${(bytes / 1000).toFixed(4)} KB`,
+            `MB (10^6): ${(bytes / 1000000).toFixed(4)} MB`,
+            `GB (10^9): ${(bytes / 1000000000).toFixed(6)} GB`
+          ].join('\n');
+
+          const blob = new Blob([summary], { type: 'text/plain;charset=utf-8' });
+          result = {
+            blob,
+            name: `unit-conversion-${val}-${unitFrom}.txt`,
+            size: blob.size,
+            type: 'text/plain',
+            url: URL.createObjectURL(blob),
+            previewText: summary
+          };
+          break;
+        }
+        case 'color-picker': {
+          setProgress(50);
+          const hex = colorInput.trim().startsWith('#') ? colorInput.trim() : `#${colorInput.trim()}`;
+          const cleanHex = hex.replace('#', '');
+          let r = 0, g = 0, b = 0;
+          if (cleanHex.length === 3) {
+            r = parseInt(cleanHex[0] + cleanHex[0], 16) || 0;
+            g = parseInt(cleanHex[1] + cleanHex[1], 16) || 0;
+            b = parseInt(cleanHex[2] + cleanHex[2], 16) || 0;
+          } else if (cleanHex.length >= 6) {
+            r = parseInt(cleanHex.substring(0, 2), 16) || 0;
+            g = parseInt(cleanHex.substring(2, 4), 16) || 0;
+            b = parseInt(cleanHex.substring(4, 6), 16) || 0;
+          }
+          const rNorm = r / 255, gNorm = g / 255, bNorm = b / 255;
+          const max = Math.max(rNorm, gNorm, bNorm), min = Math.min(rNorm, gNorm, bNorm);
+          let h = 0, s = 0, l = (max + min) / 2;
+          if (max !== min) {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+              case rNorm: h = (gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0); break;
+              case gNorm: h = (bNorm - rNorm) / d + 2; break;
+              case bNorm: h = (rNorm - gNorm) / d + 4; break;
+            }
+            h /= 6;
+          }
+          const hslStr = `hsl(${Math.round(h * 360)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`;
+          const rgbStr = `rgb(${r}, ${g}, ${b})`;
+          const cmykC = 1 - (r / 255), cmykM = 1 - (g / 255), cmykY = 1 - (b / 255), cmykK = Math.min(cmykC, cmykM, cmykY);
+          const cmykStr = `cmyk(${Math.round((cmykC - cmykK) / (1 - cmykK || 1) * 100)}%, ${Math.round((cmykM - cmykK) / (1 - cmykK || 1) * 100)}%, ${Math.round((cmykY - cmykK) / (1 - cmykK || 1) * 100)}%, ${Math.round(cmykK * 100)}%)`;
+
+          const report = [
+            `SFC Color Converter & Palette Code`,
+            `===================================`,
+            `HEX:      ${hex.toUpperCase()}`,
+            `RGB:      ${rgbStr}`,
+            `RGBA:     rgba(${r}, ${g}, ${b}, 1.0)`,
+            `HSL:      ${hslStr}`,
+            `CMYK:     ${cmykStr}`,
+            `-----------------------------------`,
+            `CSS Export:`,
+            `--color-primary: ${hex.toUpperCase()};`,
+            `background-color: ${hex.toUpperCase()};`,
+            `color: ${l > 0.5 ? '#000000' : '#FFFFFF'}; /* Optimal contrast */`
+          ].join('\n');
+
+          const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+          result = {
+            blob,
+            name: `color-${cleanHex}.txt`,
+            size: blob.size,
+            type: 'text/plain',
+            url: URL.createObjectURL(blob),
+            previewText: report
+          };
+          break;
+        }
 
         default:
           throw new Error('This tool configuration is being prepared.');
@@ -405,36 +697,117 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
   const originalTotalSize = files.reduce((acc, f) => acc + f.size, 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/70 backdrop-blur-sm overflow-y-auto">
-      <div className="relative w-full max-w-3xl bg-white dark:bg-[#1E293B] rounded-3xl border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <span>{t[tool.nameKey] || tool.id}</span>
-              <span className="text-xs uppercase font-bold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400">
-                {tool.category}
-              </span>
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{t[tool.descKey]}</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-md overflow-y-auto animate-apple-in">
+      <div className="relative w-full max-w-3xl bg-white dark:bg-[#1C1C1E] rounded-[24px] border border-[#D2D2D7] dark:border-[#38383A] shadow-apple-window dark:shadow-apple-dark-window overflow-hidden my-auto max-h-[92vh] flex flex-col">
+        {/* macOS Window Title Bar */}
+        <div className="px-5 py-3.5 border-b border-[#D2D2D7]/80 dark:border-[#38383A]/80 flex items-center justify-between bg-[#F5F5F7] dark:bg-[#2C2C2E]/60">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 mr-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#FF5F56] border border-[#E0443E]/50" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#FFBD2E] border border-[#DEA123]/50" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#27C93F] border border-[#1AAB29]/50" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-2">
+                <span>{t[tool.nameKey] || tool.id}</span>
+                <span className="text-[10px] uppercase font-medium px-2 py-0.5 rounded-full bg-[#E5E5EA] dark:bg-[#3A3A3C] text-[#86868B] dark:text-[#98989D]">
+                  {tool.category}
+                </span>
+              </h2>
+              <p className="text-[11px] text-[#86868B] dark:text-[#98989D] mt-0.5">{t[tool.descKey]}</p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+            className="w-7 h-7 rounded-full bg-[#E5E5EA] dark:bg-[#3A3A3C] flex items-center justify-center text-[#86868B] hover:text-[#1D1D1F] dark:hover:text-[#F5F5F7] transition"
           >
-            <X className="w-5 h-5" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto space-y-6">
+        <div className="p-5 sm:p-6 overflow-y-auto space-y-5">
+          {/* Direct Input Controls for Text, QR, Barcode, Units, and Color Tools */}
+          {isDirectInputTool && (
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 space-y-3">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                {tool.id === 'color-picker'
+                  ? 'Color Code Converter'
+                  : tool.id === 'unit-converter'
+                  ? 'Unit & Storage Calculator'
+                  : 'Direct Input (or upload file below)'}
+              </label>
+
+              {tool.id === 'color-picker' ? (
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={colorInput.startsWith('#') ? colorInput : `#${colorInput}`}
+                    onChange={(e) => setColorInput(e.target.value)}
+                    className="w-12 h-10 rounded-lg cursor-pointer bg-transparent border-0"
+                  />
+                  <input
+                    type="text"
+                    value={colorInput}
+                    onChange={(e) => setColorInput(e.target.value)}
+                    placeholder="#38BDF8"
+                    className="flex-1 p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white font-mono text-sm"
+                  />
+                </div>
+              ) : tool.id === 'unit-converter' ? (
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Value</label>
+                    <input
+                      type="number"
+                      value={unitValue}
+                      onChange={(e) => setUnitValue(parseFloat(e.target.value) || 0)}
+                      className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Unit</label>
+                    <select
+                      value={unitFrom}
+                      onChange={(e) => setUnitFrom(e.target.value as any)}
+                      className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
+                    >
+                      <option value="Bytes">Bytes (B)</option>
+                      <option value="KB">Kilobytes (KB)</option>
+                      <option value="MB">Megabytes (MB)</option>
+                      <option value="GB">Gigabytes (GB)</option>
+                    </select>
+                  </div>
+                </div>
+              ) : (
+                <textarea
+                  rows={4}
+                  value={textContent}
+                  onChange={(e) => setTextContent(e.target.value)}
+                  placeholder={
+                    tool.id === 'qr-generator'
+                      ? 'Enter website URL or text for QR code (e.g. https://shadatfatihbd.github.io/Shadat-Fatih-Converter-/)...'
+                      : tool.id === 'barcode-generator'
+                      ? 'Enter alphanumeric text for Code-128 Barcode (e.g. SFC-2026)...'
+                      : tool.id === 'json-formatter'
+                      ? 'Paste JSON code here to format and validate...'
+                      : tool.id === 'img-base64'
+                      ? 'Paste base64 image string here to decode...'
+                      : 'Type or paste text content here...'
+                  }
+                  className="w-full p-3 rounded-xl bg-white dark:bg-slate-700/80 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white text-xs font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              )}
+            </div>
+          )}
+
           {/* File Upload Zone */}
           {files.length === 0 ? (
             <div
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-sky-500 dark:hover:border-sky-500 rounded-2xl p-8 sm:p-12 text-center cursor-pointer transition-colors bg-slate-50/50 dark:bg-slate-800/30 group"
+              className="border-2 border-dashed border-[#D2D2D7] dark:border-[#38383A] hover:border-[#0071E3] dark:hover:border-[#0A84FF] rounded-[20px] p-8 sm:p-12 text-center cursor-pointer transition-colors bg-[#F5F5F7]/40 dark:bg-[#2C2C2E]/30 group"
             >
               <input
                 ref={fileInputRef}
@@ -444,25 +817,25 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                 onChange={(e) => handleFileChange(e.target.files)}
                 className="hidden"
               />
-              <div className="w-16 h-16 rounded-2xl bg-sky-500/10 dark:bg-sky-500/20 text-sky-500 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                <UploadCloud className="w-8 h-8" />
+              <div className="w-12 h-12 rounded-[14px] bg-[#E5E5EA] dark:bg-[#3A3A3C] text-[#0071E3] dark:text-[#0A84FF] flex items-center justify-center mx-auto mb-3 shadow-apple-sm transition-transform group-hover:scale-105">
+                <UploadCloud className="w-6 h-6" strokeWidth={1.75} />
               </div>
-              <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-200">
+              <h3 className="text-sm sm:text-base font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
                 {t.dropTitle}
               </h3>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+              <p className="text-xs text-[#86868B] dark:text-[#98989D] mt-1">
                 {t.dropSubtitle}
               </p>
-              <div className="mt-4 inline-flex items-center gap-2 text-xs font-semibold px-3 py-1 rounded-full bg-slate-200/60 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300">
+              <div className="mt-3 inline-flex items-center gap-2 text-[11px] font-medium px-3 py-1 rounded-full bg-[#E5E5EA] dark:bg-[#2C2C2E] text-[#86868B] dark:text-[#98989D]">
                 <span>Supported: {tool.inputExtensions.join(', ')}</span>
                 <span>•</span>
                 <span>Max: {tool.maxFileSizeMB} MB</span>
               </div>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-[#86868B] dark:text-[#98989D]">
                   Selected Files ({files.length})
                 </span>
                 <button
@@ -472,7 +845,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                     setExtractedFiles([]);
                     setStatus('idle');
                   }}
-                  className="text-xs text-red-500 hover:underline flex items-center gap-1 font-medium"
+                  className="text-xs text-[#FF2D55] hover:opacity-80 flex items-center gap-1 font-medium transition"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   {t.resetBtn}
@@ -483,15 +856,15 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                 {files.map((file, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-xs sm:text-sm"
+                    className="flex items-center justify-between p-3 rounded-[14px] bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-[#E5E5EA] dark:border-[#38383A] text-xs"
                   >
-                    <div className="flex items-center gap-3 truncate">
-                      <FileCheck className="w-4 h-4 text-sky-500 shrink-0" />
-                      <span className="font-medium text-slate-800 dark:text-slate-200 truncate">
+                    <div className="flex items-center gap-2.5 truncate">
+                      <FileCheck className="w-4 h-4 text-[#0071E3] dark:text-[#0A84FF] shrink-0" />
+                      <span className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7] truncate">
                         {file.name}
                       </span>
                     </div>
-                    <span className="text-slate-500 text-xs font-mono shrink-0 ml-2">
+                    <span className="text-[#86868B] dark:text-[#98989D] text-[11px] font-apple-mono shrink-0 ml-2">
                       {formatSize(file.size)}
                     </span>
                   </div>
@@ -765,6 +1138,227 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                       </select>
                     </div>
                   )}
+
+                  {/* PDF Resize Page */}
+                  {tool.id === 'pdf-resize-page' && (
+                    <div className="text-xs">
+                      <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                        Target Page Size
+                      </label>
+                      <select
+                        value={pdfPageSize}
+                        onChange={(e) => setPdfPageSize(e.target.value as 'A4' | 'A3' | 'Letter' | 'Legal')}
+                        className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
+                      >
+                        <option value="A4">A4 (210 x 297 mm - Standard)</option>
+                        <option value="A3">A3 (297 x 420 mm - Large Format)</option>
+                        <option value="Letter">US Letter (8.5 x 11 in)</option>
+                        <option value="Legal">US Legal (8.5 x 14 in)</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* PDF Digital Signature */}
+                  {tool.id === 'pdf-signature' && (
+                    <div className="text-xs space-y-2">
+                      <label className="block font-semibold text-slate-700 dark:text-slate-300">
+                        Signature Stamp Image (PNG / Transparent)
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            setPdfSignatureFile(e.target.files[0]);
+                          }
+                        }}
+                        className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-sky-500 file:text-white hover:file:bg-sky-600 cursor-pointer"
+                      />
+                      {pdfSignatureFile && (
+                        <p className="text-[11px] text-emerald-500 font-semibold">Loaded: {pdfSignatureFile.name}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Image Filter & Background Settings */}
+                  {tool.id === 'img-filter' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                      <div>
+                        <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                          Color Filter
+                        </label>
+                        <select
+                          value={imageSettings.filter || 'none'}
+                          onChange={(e) =>
+                            setImageSettings({
+                              ...imageSettings,
+                              filter: e.target.value as 'none' | 'grayscale' | 'sepia' | 'invert'
+                            })
+                          }
+                          className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
+                        >
+                          <option value="none">None (Natural Colors)</option>
+                          <option value="grayscale">Grayscale (B&W)</option>
+                          <option value="sepia">Sepia (Warm Vintage)</option>
+                          <option value="invert">Invert (Negative)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                          Background Fill Color
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. #FFFFFF or transparent"
+                          value={imageSettings.backgroundColor || ''}
+                          onChange={(e) => setImageSettings({ ...imageSettings, backgroundColor: e.target.value })}
+                          className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white font-mono"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* QR Code Settings */}
+                  {tool.id === 'qr-generator' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                      <div>
+                        <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Format</label>
+                        <select
+                          value={qrFormat}
+                          onChange={(e) => setQrFormat(e.target.value as 'png' | 'svg')}
+                          className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
+                        >
+                          <option value="png">PNG (Raster)</option>
+                          <option value="svg">SVG (Vector)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">QR Color</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={qrColorDark}
+                            onChange={(e) => setQrColorDark(e.target.value)}
+                            className="w-8 h-8 rounded cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={qrColorDark}
+                            onChange={(e) => setQrColorDark(e.target.value)}
+                            className="w-full p-2 rounded bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-xs font-mono"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Background</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={qrColorLight}
+                            onChange={(e) => setQrColorLight(e.target.value)}
+                            className="w-8 h-8 rounded cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={qrColorLight}
+                            onChange={(e) => setQrColorLight(e.target.value)}
+                            className="w-full p-2 rounded bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-xs font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Case Converter Settings */}
+                  {tool.id === 'case-converter' && (
+                    <div className="text-xs">
+                      <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                        Target Case Format
+                      </label>
+                      <select
+                        value={caseType}
+                        onChange={(e) => setCaseType(e.target.value as any)}
+                        className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
+                      >
+                        <option value="upper">UPPERCASE</option>
+                        <option value="lower">lowercase</option>
+                        <option value="title">Title Case (Every Word Capitalized)</option>
+                        <option value="sentence">Sentence case</option>
+                        <option value="camel">camelCase</option>
+                        <option value="snake">snake_case</option>
+                        <option value="kebab">kebab-case</option>
+                        <option value="constant">CONSTANT_CASE</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Text Cleaner Settings */}
+                  {tool.id === 'text-cleaner' && (
+                    <div className="flex flex-wrap gap-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={cleanOptions.removeDuplicateLines}
+                          onChange={(e) => setCleanOptions({ ...cleanOptions, removeDuplicateLines: e.target.checked })}
+                          className="rounded accent-sky-500"
+                        />
+                        <span>Remove Duplicate Lines</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={cleanOptions.trimLines}
+                          onChange={(e) => setCleanOptions({ ...cleanOptions, trimLines: e.target.checked })}
+                          className="rounded accent-sky-500"
+                        />
+                        <span>Trim Extra Whitespace</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={cleanOptions.removeEmptyLines}
+                          onChange={(e) => setCleanOptions({ ...cleanOptions, removeEmptyLines: e.target.checked })}
+                          className="rounded accent-sky-500"
+                        />
+                        <span>Remove Empty Lines</span>
+                      </label>
+                    </div>
+                  )}
+
+                  {/* Text Reverser Settings */}
+                  {tool.id === 'text-reverser' && (
+                    <div className="text-xs">
+                      <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                        Reversal Mode
+                      </label>
+                      <select
+                        value={reverseMode}
+                        onChange={(e) => setReverseMode(e.target.value as 'text' | 'words')}
+                        className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
+                      >
+                        <option value="text">Reverse Characters</option>
+                        <option value="words">Reverse Word Order</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* JSON Formatter Settings */}
+                  {tool.id === 'json-formatter' && (
+                    <div className="text-xs">
+                      <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                        JSON Indentation
+                      </label>
+                      <select
+                        value={jsonIndentation}
+                        onChange={(e) => setJsonIndentation(parseInt(e.target.value, 10))}
+                        className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
+                      >
+                        <option value="2">2 Spaces (Standard)</option>
+                        <option value="4">4 Spaces</option>
+                        <option value="0">Minified (Compact - 0 Spaces)</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -817,37 +1411,37 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
             </div>
           )}
 
-          {/* Progress Bar */}
+          {/* Apple Minimal Progress Bar */}
           {status === 'processing' && (
             <div className="space-y-2">
-              <div className="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <div className="flex justify-between text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
                 <span className="flex items-center gap-2">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-500" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#0071E3] dark:text-[#0A84FF]" />
                   {t.converting}
                 </span>
-                <span>{progress}%</span>
+                <span className="font-apple-mono">{progress}%</span>
               </div>
-              <div className="w-full bg-slate-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
+              <div className="w-full bg-[#E5E5EA] dark:bg-[#38383A] h-1.5 rounded-full overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-sky-500 to-indigo-600 h-full rounded-full transition-all duration-300"
+                  className="bg-[#0071E3] dark:bg-[#0A84FF] h-full rounded-full transition-all duration-300"
                   style={{ width: `${progress}%` }}
                 />
               </div>
             </div>
           )}
 
-          {/* Success Screen */}
+          {/* Apple Minimal Success Screen */}
           {status === 'success' && convertedResult && (
-            <div className="p-6 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 space-y-5 animate-fadeIn">
+            <div className="p-6 rounded-[20px] bg-[#F5F5F7] dark:bg-[#2C2C2E]/60 border border-[#D2D2D7] dark:border-[#38383A] space-y-4 animate-apple-in">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
-                  <CheckCircle2 className="w-6 h-6" />
+                <div className="w-9 h-9 rounded-full bg-[#34C759]/15 text-[#34C759] flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-900 dark:text-white text-base">
+                  <h4 className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] text-base">
                     {t.statusDone}
                   </h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <p className="text-xs text-[#86868B] dark:text-[#98989D]">
                     {convertedResult.extraInfo || convertedResult.name}
                   </p>
                 </div>
@@ -938,11 +1532,11 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                 </div>
               )}
 
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              {/* Apple Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
                 <button
                   onClick={() => handleDownload(convertedResult)}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white font-bold text-sm shadow-lg shadow-sky-500/25 transition-all hover:scale-[1.02]"
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 px-6 rounded-full bg-[#0071E3] hover:bg-[#0077ED] dark:bg-[#0A84FF] dark:hover:bg-[#0071E3] text-white font-medium text-xs sm:text-sm shadow-apple-sm transition-all hover:scale-[1.01] active:scale-[0.98]"
                 >
                   <Download className="w-4 h-4" />
                   <span>{t.downloadBtn}</span>
@@ -954,7 +1548,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                     setExtractedFiles([]);
                     setStatus('idle');
                   }}
-                  className="flex items-center justify-center gap-2 py-3 px-5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-sm transition"
+                  className="flex items-center justify-center gap-2 py-2.5 px-5 rounded-full bg-[#E5E5EA] dark:bg-[#3A3A3C] hover:bg-[#D2D2D7] dark:hover:bg-[#48484A] text-[#1D1D1F] dark:text-[#F5F5F7] font-medium text-xs sm:text-sm transition"
                 >
                   <RotateCcw className="w-4 h-4" />
                   <span>{t.convertAnother}</span>
@@ -964,22 +1558,42 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
           )}
         </div>
 
-        {/* Footer */}
+        {/* Apple Window Footer Toolbar */}
         {status !== 'success' && (
-          <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex items-center justify-between">
+          <div className="px-6 py-3.5 border-t border-[#D2D2D7]/80 dark:border-[#38383A]/80 bg-[#F5F5F7] dark:bg-[#2C2C2E]/60 flex items-center justify-between">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+              className="px-4 py-2 text-xs font-medium rounded-full text-[#86868B] dark:text-[#98989D] hover:bg-black/5 dark:hover:bg-white/5 transition"
             >
               {t.cancelBtn}
             </button>
             <button
-              disabled={files.length === 0 || status === 'processing'}
+              disabled={
+                (files.length === 0 &&
+                  !(
+                    isDirectInputTool &&
+                    (textContent.trim().length > 0 ||
+                      tool.id === 'unit-converter' ||
+                      tool.id === 'color-picker' ||
+                      tool.id === 'barcode-generator' ||
+                      tool.id === 'qr-generator')
+                  )) ||
+                status === 'processing'
+              }
               onClick={startConversion}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-white transition-all shadow-md ${
-                files.length === 0 || status === 'processing'
-                  ? 'bg-slate-400 dark:bg-slate-700 cursor-not-allowed opacity-60'
-                  : 'bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 shadow-sky-500/25 hover:scale-105'
+              className={`flex items-center gap-2 px-6 py-2 rounded-full font-medium text-xs sm:text-sm text-white transition-all shadow-apple-sm ${
+                (files.length === 0 &&
+                  !(
+                    isDirectInputTool &&
+                    (textContent.trim().length > 0 ||
+                      tool.id === 'unit-converter' ||
+                      tool.id === 'color-picker' ||
+                      tool.id === 'barcode-generator' ||
+                      tool.id === 'qr-generator')
+                  )) ||
+                status === 'processing'
+                  ? 'bg-[#8E8E93] dark:bg-[#3A3A3C] cursor-not-allowed opacity-60'
+                  : 'bg-[#0071E3] hover:bg-[#0077ED] dark:bg-[#0A84FF] dark:hover:bg-[#0071E3] hover:scale-[1.02] active:scale-[0.98]'
               }`}
             >
               {status === 'processing' ? (

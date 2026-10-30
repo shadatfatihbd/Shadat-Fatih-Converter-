@@ -35,12 +35,22 @@ export async function processImage(
           canvas.height = height;
         }
 
-        // Fill background white if target is JPEG or BMP (no transparency)
-        if (settings.targetFormat === 'image/jpeg' || settings.targetFormat === 'image/bmp') {
+        // Apply background color if specified or if converting to non-alpha format
+        if (settings.backgroundColor) {
+          ctx.fillStyle = settings.backgroundColor;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        } else if (settings.targetFormat === 'image/jpeg' || settings.targetFormat === 'image/bmp') {
           ctx.fillStyle = '#FFFFFF';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
         } else {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Apply visual filters (Grayscale, Sepia, Invert)
+        if (settings.filter && settings.filter !== 'none') {
+          if (settings.filter === 'grayscale') ctx.filter = 'grayscale(100%)';
+          else if (settings.filter === 'sepia') ctx.filter = 'sepia(100%)';
+          else if (settings.filter === 'invert') ctx.filter = 'invert(100%)';
         }
 
         ctx.save();
@@ -51,8 +61,31 @@ export async function processImage(
         const scaleY = settings.flipVertical ? -1 : 1;
         ctx.scale(scaleX, scaleY);
 
-        ctx.drawImage(img, -width / 2, -height / 2, width, height);
+        if (settings.cropEnabled && settings.cropWidth && settings.cropHeight) {
+          const sx = settings.cropX || 0;
+          const sy = settings.cropY || 0;
+          const sW = settings.cropWidth;
+          const sH = settings.cropHeight;
+          ctx.drawImage(img, sx, sy, sW, sH, -width / 2, -height / 2, width, height);
+        } else {
+          ctx.drawImage(img, -width / 2, -height / 2, width, height);
+        }
         ctx.restore();
+
+        // Reset filter
+        ctx.filter = 'none';
+
+        // Draw Watermark if specified
+        if (settings.watermarkText && settings.watermarkText.trim()) {
+          const wmText = settings.watermarkText.trim();
+          const fontSize = Math.max(14, Math.round(canvas.width / 25));
+          ctx.font = `bold ${fontSize}px sans-serif`;
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+          ctx.shadowBlur = 6;
+          ctx.textAlign = 'right';
+          ctx.fillText(wmText, canvas.width - 20, canvas.height - 20);
+        }
 
         const quality = Math.max(0.1, Math.min(1.0, settings.quality || 0.92));
         const baseName = file.name.replace(/\.[^/.]+$/, '');

@@ -1,6 +1,8 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import { PDFDocument, StandardFonts, rgb, degrees } from 'pdf-lib';
 import JSZip from 'jszip';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
+import * as XLSX from 'xlsx';
 import { ConvertedFile } from '../types';
 
 // Configure pdfjs worker CDN matching the installed version
@@ -589,3 +591,348 @@ function encodeBmp(canvas: HTMLCanvasElement): Blob {
 
   return new Blob([buffer], { type: 'image/bmp' });
 }
+
+export async function pdfToDocx(
+  file: File,
+  onProgress?: (progress: number) => void
+): Promise<ConvertedFile> {
+  onProgress?.(10);
+  const arrayBuffer = await file.arrayBuffer();
+  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+  const pdf = await loadingTask.promise;
+  const numPages = pdf.numPages;
+
+  const docParagraphs: Paragraph[] = [];
+
+  for (let i = 1; i <= numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+
+    // Add page break header if not first page
+    if (i > 1) {
+      docParagraphs.push(
+        new Paragraph({
+          text: `[Page ${i}]`,
+          heading: HeadingLevel.HEADING_3,
+          spacing: { before: 240, after: 120 }
+        })
+      );
+    }
+
+    // Group items by vertical position Y
+    const lineMap = new Map<number, string[]>();
+    for (const item of content.items) {
+      if ('str' in item && item.str.trim()) {
+        const y = Math.round(item.transform[5]);
+        if (!lineMap.has(y)) {
+          lineMap.set(y, []);
+        }
+        lineMap.get(y)!.push(item.str);
+      }
+    }
+
+    // Sort top to bottom
+    const sortedY = Array.from(lineMap.keys()).sort((a, b) => b - a);
+
+    for (const y of sortedY) {
+      const lineText = lineMap.get(y)!.join(' ').trim();
+      if (lineText) {
+        docParagraphs.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: lineText,
+                size: 24, // 12pt
+                font: 'Calibri'
+              })
+            ],
+            spacing: { after: 100 }
+          })
+        );
+      }
+    }
+
+    onProgress?.(Math.round(15 + (i / numPages) * 70));
+  }
+
+  if (docParagraphs.length === 0) {
+    docParagraphs.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: 'Notice: No selectable text streams were detected in this PDF document.',
+            bold: true,
+            size: 24
+          })
+        ]
+      })
+    );
+  }
+
+  const doc = new Document({
+    sections: [{ properties: {}, children: docParagraphs }]
+  });
+
+  const blob = await Packer.toBlob(doc);
+  const url = URL.createObjectURL(blob);
+  const baseName = file.name.replace(/\.[^/.]+$/, '');
+  onProgress?.(100);
+
+  return {
+    name: `${baseName}.docx`,
+    size: blob.size,
+    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    url,
+    blob,
+    extraInfo: `Converted ${numPages} PDF pages into formatted Word (.docx) document`
+  };
+}
+
+export async function pdfToSpreadsheet(
+  file: File,
+  format: 'xlsx' | 'csv' = 'xlsx'
+): Promise<ConvertedFile> {
+  const arrayBuffer = await file.arrayBuffer();
+  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+  const pdf = await loadingTask.promise;
+  const numPages = pdf.numPages;
+
+  const tableRows: string[][] = [];
+
+  for (let i = 1; i <= numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+
+    const lineMap = new Map<number, string[]>();
+    for (const item of content.items) {
+      if ('str' in item && item.str.trim()) {
+        const y = Math.round(item.transform[5]);
+        if (!lineMap.has(y)) {
+          lineMap.set(y, []);
+        }
+        lineMap.get(y)!.push(item.str);
+      }
+    }
+
+    const sortedY = Array.from(lineMap.keys()).sort((a, b) => b - a);
+
+    for (const y of sortedY) {
+      const line = lineMap.get(y)!;
+      // Split by multi-spaces or commas into cells
+      const cells: string[] = [];
+      line.forEach((segment) => {
+        const parts = segment.split(/\s{2,}|\t/);
+        parts.forEach((p) => {
+          if (p.trim()) cells.push(p.trim());
+        });
+      });
+
+      if (cells.length > 0) {
+        tableRows.push(cells);
+      }
+    }
+  }
+
+  if (tableRows.length === 0) {
+    tableRows.push(['No tabular data extracted from PDF']);
+  }
+
+  const worksheet = XLSX.utils.aoa_to_sheet(tableRows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Extracted Data');
+
+  const baseName = file.name.replace(/\.[^/.]+$/, '');
+
+  if (format === 'csv') {
+    const csvText = XLSX.utils.sheet_to_csv(worksheet);
+    const blob = new Blob(['\uFEFF' + csvText], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    return {
+      name: `${baseName}.csv`,
+      size: blob.size,
+      type: 'text/csv',
+      url,
+      blob,
+      previewText: csvText.slice(0, 1000),
+      extraInfo: `Extracted ${tableRows.length} rows to CSV`
+    };
+  }
+
+  const outBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([outBuffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  });
+  const url = URL.createObjectURL(blob);
+
+  return {
+    name: `${baseName}.xlsx`,
+    size: blob.size,
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    url,
+    blob,
+    extraInfo: `Extracted ${tableRows.length} rows into structured Excel spreadsheet`
+  };
+}
+
+export async function resizePdfPages(
+  file: File,
+  targetSize: 'A4' | 'A3' | 'Letter' | 'Legal' = 'A4'
+): Promise<ConvertedFile> {
+  const sizeDimensions: Record<string, [number, number]> = {
+    A4: [595.28, 841.89],
+    A3: [841.89, 1190.55],
+    Letter: [612, 792],
+    Legal: [612, 1008]
+  };
+
+  const [targetW, targetH] = sizeDimensions[targetSize] || sizeDimensions.A4;
+
+  const arrayBuffer = await file.arrayBuffer();
+  const srcDoc = await PDFDocument.load(arrayBuffer);
+  const newDoc = await PDFDocument.create();
+
+  const numPages = srcDoc.getPageCount();
+
+  for (let i = 0; i < numPages; i++) {
+    const [embeddedPage] = await newDoc.embedPages([srcDoc.getPage(i)]);
+    const page = newDoc.addPage([targetW, targetH]);
+
+    const scale = Math.min(targetW / embeddedPage.width, targetH / embeddedPage.height);
+    const scaledW = embeddedPage.width * scale;
+    const scaledH = embeddedPage.height * scale;
+
+    page.drawPage(embeddedPage, {
+      x: (targetW - scaledW) / 2,
+      y: (targetH - scaledH) / 2,
+      width: scaledW,
+      height: scaledH
+    });
+  }
+
+  const pdfBytes = await newDoc.save();
+  const blob = new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const baseName = file.name.replace(/\.[^/.]+$/, '');
+
+  return {
+    name: `${baseName}_${targetSize}.pdf`,
+    size: blob.size,
+    type: 'application/pdf',
+    url,
+    blob,
+    extraInfo: `Resized ${numPages} page(s) to ${targetSize} (${Math.round(targetW)}×${Math.round(targetH)} pts)`
+  };
+}
+
+export async function addSignatureStamp(
+  pdfFile: File,
+  stampImageFile: File,
+  position: 'bottom-right' | 'bottom-left' | 'center' = 'bottom-right'
+): Promise<ConvertedFile> {
+  const pdfBytes = await pdfFile.arrayBuffer();
+  const stampBytes = await stampImageFile.arrayBuffer();
+
+  const pdfDoc = await PDFDocument.load(pdfBytes);
+  const pages = pdfDoc.getPages();
+  const lastPage = pages[pages.length - 1];
+  const { width, height } = lastPage.getSize();
+
+  let embeddedImage;
+  if (stampImageFile.type === 'image/jpeg' || stampImageFile.name.match(/\.(jpg|jpeg)$/i)) {
+    embeddedImage = await pdfDoc.embedJpg(stampBytes);
+  } else {
+    embeddedImage = await pdfDoc.embedPng(stampBytes);
+  }
+
+  const stampWidth = Math.min(160, width * 0.35);
+  const stampHeight = (stampWidth / embeddedImage.width) * embeddedImage.height;
+
+  let x = width - stampWidth - 50;
+  let y = 50;
+
+  if (position === 'bottom-left') {
+    x = 50;
+    y = 50;
+  } else if (position === 'center') {
+    x = (width - stampWidth) / 2;
+    y = (height - stampHeight) / 2;
+  }
+
+  lastPage.drawImage(embeddedImage, {
+    x,
+    y,
+    width: stampWidth,
+    height: stampHeight
+  });
+
+  const outBytes = await pdfDoc.save();
+  const blob = new Blob([outBytes as unknown as BlobPart], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const baseName = pdfFile.name.replace(/\.[^/.]+$/, '');
+
+  return {
+    name: `${baseName}_signed.pdf`,
+    size: blob.size,
+    type: 'application/pdf',
+    url,
+    blob,
+    extraInfo: `Applied digital signature image stamp to page ${pages.length}`
+  };
+}
+
+export async function removePdfMetadata(file: File): Promise<ConvertedFile> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdfDoc = await PDFDocument.load(arrayBuffer);
+
+  pdfDoc.setTitle('');
+  pdfDoc.setAuthor('');
+  pdfDoc.setSubject('');
+  pdfDoc.setKeywords([]);
+  pdfDoc.setProducer('');
+  pdfDoc.setCreator('');
+
+  const pdfBytes = await pdfDoc.save();
+  const blob = new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const baseName = file.name.replace(/\.[^/.]+$/, '');
+
+  return {
+    name: `${baseName}_sanitized.pdf`,
+    size: blob.size,
+    type: 'application/pdf',
+    url,
+    blob,
+    extraInfo: `Stripped Title, Author, Subject, Keywords, and Producer metadata`
+  };
+}
+
+export async function compressPdf(
+  file: File,
+  quality: 'low' | 'medium' | 'high' = 'medium'
+): Promise<ConvertedFile> {
+  const arrayBuffer = await file.arrayBuffer();
+  const srcDoc = await PDFDocument.load(arrayBuffer);
+  const total = srcDoc.getPageCount();
+
+  // Re-encode and save with object stream compression
+  const pdfBytes = await srcDoc.save({
+    useObjectStreams: true,
+    addDefaultPage: false
+  });
+
+  const blob = new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const baseName = file.name.replace(/\.[^/.]+$/, '');
+
+  const savedPct = file.size > 0 ? Math.max(0, Math.round(((file.size - blob.size) / file.size) * 100)) : 0;
+
+  return {
+    name: `${baseName}_compressed.pdf`,
+    size: blob.size,
+    type: 'application/pdf',
+    url,
+    blob,
+    extraInfo: `Optimized object streams across ${total} pages (Reduced: ${savedPct}%)`
+  };
+}
+

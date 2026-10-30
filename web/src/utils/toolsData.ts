@@ -51,6 +51,52 @@ export const TOOLS_DATA: ConversionTool[] = [
     engine: 'pdf'
   },
   {
+    id: 'pdf-to-docx',
+    nameKey: 'tool_pdf_to_docx',
+    descKey: 'tool_pdf_to_docx_desc',
+    category: 'pdf',
+    iconName: 'FileWord',
+    inputExtensions: ['.pdf'],
+    outputExtensions: ['.docx'],
+    maxFileSizeMB: 100,
+    popular: true,
+    engine: 'pdf'
+  },
+  {
+    id: 'pdf-to-excel',
+    nameKey: 'tool_pdf_to_excel',
+    descKey: 'tool_pdf_to_excel_desc',
+    category: 'pdf',
+    iconName: 'FileSpreadsheet',
+    inputExtensions: ['.pdf'],
+    outputExtensions: ['.xlsx', '.csv'],
+    maxFileSizeMB: 100,
+    engine: 'pdf'
+  },
+  {
+    id: 'pdf-compress',
+    nameKey: 'tool_pdf_compress',
+    descKey: 'tool_pdf_compress_desc',
+    category: 'pdf',
+    iconName: 'Minimize2',
+    inputExtensions: ['.pdf'],
+    outputExtensions: ['.pdf'],
+    maxFileSizeMB: 100,
+    popular: true,
+    engine: 'pdf'
+  },
+  {
+    id: 'pdf-resize-page',
+    nameKey: 'tool_pdf_resize_page',
+    descKey: 'tool_pdf_resize_page_desc',
+    category: 'pdf',
+    iconName: 'Maximize2',
+    inputExtensions: ['.pdf'],
+    outputExtensions: ['.pdf'],
+    maxFileSizeMB: 100,
+    engine: 'pdf'
+  },
+  {
     id: 'pdf-watermark',
     nameKey: 'tool_pdf_watermark',
     descKey: 'tool_pdf_watermark_desc',
@@ -68,6 +114,17 @@ export const TOOLS_DATA: ConversionTool[] = [
     descKey: 'tool_pdf_page_numbers_desc',
     category: 'pdf',
     iconName: 'Hash',
+    inputExtensions: ['.pdf'],
+    outputExtensions: ['.pdf'],
+    maxFileSizeMB: 100,
+    engine: 'pdf'
+  },
+  {
+    id: 'pdf-signature',
+    nameKey: 'tool_pdf_signature',
+    descKey: 'tool_pdf_signature_desc',
+    category: 'pdf',
+    iconName: 'PenTool',
     inputExtensions: ['.pdf'],
     outputExtensions: ['.pdf'],
     maxFileSizeMB: 100,
@@ -144,6 +201,52 @@ export const TOOLS_DATA: ConversionTool[] = [
     engine: 'image'
   },
   {
+    id: 'img-resize',
+    nameKey: 'tool_img_resize',
+    descKey: 'tool_img_resize_desc',
+    category: 'image',
+    iconName: 'Maximize2',
+    inputExtensions: ['.png', '.jpg', '.jpeg', '.webp', '.bmp'],
+    outputExtensions: ['.png', '.jpg', '.webp', '.bmp'],
+    maxFileSizeMB: 50,
+    popular: true,
+    engine: 'image'
+  },
+  {
+    id: 'img-compress',
+    nameKey: 'tool_img_compress',
+    descKey: 'tool_img_compress_desc',
+    category: 'image',
+    iconName: 'Minimize2',
+    inputExtensions: ['.jpg', '.jpeg', '.png', '.webp'],
+    outputExtensions: ['.jpg', '.webp'],
+    maxFileSizeMB: 50,
+    popular: true,
+    engine: 'image'
+  },
+  {
+    id: 'img-crop',
+    nameKey: 'tool_img_crop',
+    descKey: 'tool_img_crop_desc',
+    category: 'image',
+    iconName: 'Crop',
+    inputExtensions: ['.png', '.jpg', '.jpeg', '.webp'],
+    outputExtensions: ['.jpg', '.png', '.webp'],
+    maxFileSizeMB: 50,
+    engine: 'image'
+  },
+  {
+    id: 'img-filter',
+    nameKey: 'tool_img_filter',
+    descKey: 'tool_img_filter_desc',
+    category: 'image',
+    iconName: 'Sliders',
+    inputExtensions: ['.png', '.jpg', '.jpeg', '.webp'],
+    outputExtensions: ['.jpg', '.png', '.webp'],
+    maxFileSizeMB: 50,
+    engine: 'image'
+  },
+  {
     id: 'img-to-ico',
     nameKey: 'tool_img_to_ico',
     descKey: 'tool_img_to_ico_desc',
@@ -164,29 +267,6 @@ export const TOOLS_DATA: ConversionTool[] = [
     inputExtensions: ['.png', '.jpg', '.jpeg', '.webp'],
     outputExtensions: ['.svg'],
     maxFileSizeMB: 20,
-    engine: 'image'
-  },
-  {
-    id: 'img-compress',
-    nameKey: 'tool_img_compress',
-    descKey: 'tool_img_compress_desc',
-    category: 'image',
-    iconName: 'Minimize2',
-    inputExtensions: ['.jpg', '.jpeg', '.png', '.webp'],
-    outputExtensions: ['.jpg', '.webp'],
-    maxFileSizeMB: 50,
-    popular: true,
-    engine: 'image'
-  },
-  {
-    id: 'img-resize',
-    nameKey: 'tool_img_resize',
-    descKey: 'tool_img_resize_desc',
-    category: 'image',
-    iconName: 'Maximize2',
-    inputExtensions: ['.png', '.jpg', '.jpeg', '.webp', '.bmp'],
-    outputExtensions: ['.png', '.jpg', '.webp', '.bmp'],
-    maxFileSizeMB: 50,
     engine: 'image'
   },
 
@@ -489,7 +569,81 @@ export const TOOLS_DATA: ConversionTool[] = [
     engine: 'archive'
   },
 
-  // ==================== 9. UTILITY TOOLS ====================
+  // ==================== 9. QR & BARCODE TOOLS ====================
+  {
+    id: 'qr-generator',
+    nameKey: 'tool_qr_generator',
+    descKey: 'tool_qr_generator_desc',
+    category: 'qr-barcode',
+    iconName: 'QrCode',
+    inputExtensions: ['*'],
+    outputExtensions: ['.png', '.svg'],
+    maxFileSizeMB: 10,
+    popular: true,
+    engine: 'qr-barcode'
+  },
+  {
+    id: 'barcode-generator',
+    nameKey: 'tool_barcode_generator',
+    descKey: 'tool_barcode_generator_desc',
+    category: 'qr-barcode',
+    iconName: 'Barcode',
+    inputExtensions: ['*'],
+    outputExtensions: ['.png'],
+    maxFileSizeMB: 10,
+    popular: true,
+    engine: 'qr-barcode'
+  },
+
+  // ==================== 10. TEXT TOOLS ====================
+  {
+    id: 'word-counter',
+    nameKey: 'tool_word_counter',
+    descKey: 'tool_word_counter_desc',
+    category: 'text',
+    iconName: 'Calculator',
+    inputExtensions: ['.txt', '.md', '*'],
+    outputExtensions: ['.txt'],
+    maxFileSizeMB: 10,
+    popular: true,
+    engine: 'text'
+  },
+  {
+    id: 'case-converter',
+    nameKey: 'tool_case_converter',
+    descKey: 'tool_case_converter_desc',
+    category: 'text',
+    iconName: 'Type',
+    inputExtensions: ['.txt', '*'],
+    outputExtensions: ['.txt'],
+    maxFileSizeMB: 10,
+    popular: true,
+    engine: 'text'
+  },
+  {
+    id: 'text-cleaner',
+    nameKey: 'tool_text_cleaner',
+    descKey: 'tool_text_cleaner_desc',
+    category: 'text',
+    iconName: 'Sparkles',
+    inputExtensions: ['.txt', '*'],
+    outputExtensions: ['.txt'],
+    maxFileSizeMB: 10,
+    engine: 'text'
+  },
+  {
+    id: 'text-reverser',
+    nameKey: 'tool_text_reverser',
+    descKey: 'tool_text_reverser_desc',
+    category: 'text',
+    iconName: 'RotateCcw',
+    inputExtensions: ['.txt', '*'],
+    outputExtensions: ['.txt'],
+    maxFileSizeMB: 10,
+    engine: 'text'
+  },
+
+  // ==================== 11. UTILITY TOOLS ====================
   {
     id: 'file-checksum',
     nameKey: 'tool_checksum',
@@ -500,6 +654,52 @@ export const TOOLS_DATA: ConversionTool[] = [
     outputExtensions: ['.txt'],
     maxFileSizeMB: 200,
     popular: true,
+    engine: 'utility'
+  },
+  {
+    id: 'img-base64',
+    nameKey: 'tool_img_base64',
+    descKey: 'tool_img_base64_desc',
+    category: 'utility',
+    iconName: 'Binary',
+    inputExtensions: ['.png', '.jpg', '.jpeg', '.webp', '.svg', '.txt', '*'],
+    outputExtensions: ['.txt', '.png'],
+    maxFileSizeMB: 25,
+    popular: true,
+    engine: 'utility'
+  },
+  {
+    id: 'json-formatter',
+    nameKey: 'tool_json_formatter',
+    descKey: 'tool_json_formatter_desc',
+    category: 'utility',
+    iconName: 'Braces',
+    inputExtensions: ['.json', '.txt', '*'],
+    outputExtensions: ['.json'],
+    maxFileSizeMB: 20,
+    popular: true,
+    engine: 'utility'
+  },
+  {
+    id: 'unit-converter',
+    nameKey: 'tool_unit_converter',
+    descKey: 'tool_unit_converter_desc',
+    category: 'utility',
+    iconName: 'Scale',
+    inputExtensions: ['*'],
+    outputExtensions: ['.txt'],
+    maxFileSizeMB: 5,
+    engine: 'utility'
+  },
+  {
+    id: 'color-picker',
+    nameKey: 'tool_color_picker',
+    descKey: 'tool_color_picker_desc',
+    category: 'utility',
+    iconName: 'Palette',
+    inputExtensions: ['*'],
+    outputExtensions: ['.txt'],
+    maxFileSizeMB: 5,
     engine: 'utility'
   },
   {
